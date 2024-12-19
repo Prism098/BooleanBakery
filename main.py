@@ -120,7 +120,7 @@ def main():
         slots.append(s)
         slot_start_y += 90
 
-    check_button = Button(WIDTH - 200, HEIGHT - 55, "Check!")
+    check_button = Button(WIDTH - 200, HEIGHT - 80, "Check!")
     start_time = time.time()
     solved = False
     score = 0
