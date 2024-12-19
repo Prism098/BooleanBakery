@@ -15,8 +15,8 @@ FONT = pygame.font.SysFont("Arial", 24)
 CLOCK = pygame.time.Clock()
 
 # Paths for assets
-BG_IMAGE = pygame.image.load("images/stage_bg.png")
-CURTAIN_IMAGE = pygame.image.load("images/curtain.png")
+BG_IMAGE = pygame.image.load("images/stage_bg.jpg")
+CURTAIN_IMAGE = pygame.image.load("images/curtain.jpg")
 BUTTON_IMAGE = pygame.image.load("images/button.png")
 BOX_IMAGES = {
     "AND": pygame.image.load("images/box_and.png"),

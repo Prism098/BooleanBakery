@@ -11,23 +11,19 @@ SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Boolean Bakery")
 
 # Fonts & Colors
+TITLE_FONT = pygame.font.SysFont("Arial", 48, bold=True)
+INSTR_FONT = pygame.font.SysFont("Arial", 32)
 FONT = pygame.font.SysFont("Arial", 24)
-TITLE_FONT = pygame.font.SysFont("Arial", 36, bold=True)
+SMALL_FONT = pygame.font.SysFont("Arial", 20)
 
+# Color palette based on mockups
+RED_BG = (194, 0, 48)   # Background red
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-ORANGE = (242, 159, 93)    # For the step boxes (example color)
-LIGHT_ORANGE = (248, 200, 143)
+ORANGE = (242, 159, 93) # If needed, but we'll mostly use white now
 GREEN = (135, 211, 124)
 RED = (235, 106, 106)
-
-# Load images (replace with your own)
-BG_IMAGE = pygame.image.load("images/bg.jpg")
-BG_IMAGE = pygame.transform.scale(BG_IMAGE, (WIDTH, HEIGHT))
-BUTTON_IMAGE = pygame.image.load("images/button.png")
-BUTTON_IMAGE = pygame.transform.scale(BUTTON_IMAGE, (120, 50))
-TIMER_IMAGE = pygame.image.load("images/curtain.jpg")
-TIMER_IMAGE = pygame.transform.scale(TIMER_IMAGE, (50, 50))
+LIGHT_GREY = (230, 230, 230)
 
 # Game constants
 STEPS = [
@@ -41,14 +37,14 @@ TIME_LIMIT = 60  # 60 seconds to solve
 POINTS_PER_CORRECT = 10
 
 class Button:
-    def __init__(self, x, y, text):
-        self.image = BUTTON_IMAGE
-        self.rect = self.image.get_rect(topleft=(x, y))
+    def __init__(self, x, y, text, width=120, height=50):
         self.text = text
-    
+        self.rect = pygame.Rect(x, y, width, height)
+
     def draw(self, surf):
-        surf.blit(self.image, self.rect)
-        txt_surf = FONT.render(self.text, True, WHITE)
+        # Draw a white rounded button
+        pygame.draw.rect(surf, WHITE, self.rect, border_radius=25)
+        txt_surf = FONT.render(self.text, True, BLACK)
         txt_rect = txt_surf.get_rect(center=self.rect.center)
         surf.blit(txt_surf, txt_rect)
 
@@ -66,17 +62,17 @@ class DraggableStep:
         self.checked = False
 
     def draw(self, surf):
-        color = ORANGE if not self.checked else (GREEN if self.correct else RED)
-        pygame.draw.rect(surf, color, self.rect, border_radius=10)
-        # Text centered in rect
-        txt_surf = FONT.render(self.text, True, BLACK)
+        # White pill-shaped rectangle with black text
+        color = WHITE if not self.checked else (GREEN if self.correct else RED)
+        pygame.draw.rect(surf, color, self.rect, border_radius=25)
+        txt_surf = FONT.render(self.text, True, BLACK if color == WHITE else WHITE)
         txt_rect = txt_surf.get_rect(center=self.rect.center)
         surf.blit(txt_surf, txt_rect)
 
-        # If checked, draw a ✓ or ✗
+        # If checked, draw symbol next to it
         if self.checked:
             symbol = "✓" if self.correct else "✗"
-            sym_color = WHITE
+            sym_color = WHITE if not self.correct else BLACK
             sym_surf = FONT.render(symbol, True, sym_color)
             sym_rect = sym_surf.get_rect(midleft=(self.rect.right + 10, self.rect.centery))
             surf.blit(sym_surf, sym_rect)
@@ -88,11 +84,19 @@ class Slot:
         self.index = index
 
     def draw(self, surf):
-        pygame.draw.rect(surf, LIGHT_ORANGE, self.rect, border_radius=10)
-        # Draw slot number
+        # Show a circle with the index on the left and white rectangle slot to the right
+        circle_radius = 25
+        circle_center = (self.rect.left - 60, self.rect.centery)
+        
+        # Draw circle with index
+        pygame.draw.circle(surf, WHITE, circle_center, circle_radius)
         num_surf = FONT.render(str(self.index), True, BLACK)
-        num_rect = num_surf.get_rect(center=(self.rect.left - 20, self.rect.centery))
+        num_rect = num_surf.get_rect(center=circle_center)
         surf.blit(num_surf, num_rect)
+
+        # Draw the slot as a white pill-shaped rectangle
+        pygame.draw.rect(surf, WHITE, self.rect, border_radius=25)
+
 
 def main():
     # Shuffle steps on the left side
@@ -101,28 +105,28 @@ def main():
 
     # Create draggable steps
     # Left column: steps at x=100, y starting at 150
-    step_y = 150
+    step_y = 200
     draggable_steps = []
     for step in puzzle_steps:
         ds = DraggableStep(step, 100, step_y)
         draggable_steps.append(ds)
-        step_y += 70
+        step_y += 90
 
     # Create slots on the right side
-    slot_start_y = 150
+    slot_start_y = 200
     slots = []
     for i in range(len(CORRECT_ORDER)):
         s = Slot(WIDTH - 400, slot_start_y, index=i+1)
         slots.append(s)
-        slot_start_y += 70
+        slot_start_y += 90
 
-    check_button = Button(WIDTH - 200, HEIGHT - 80, "Check!")
+    check_button = Button(WIDTH - 200, HEIGHT - 100, "Check!")
     start_time = time.time()
     solved = False
     score = 0
+    dragged_step = None
 
     running = True
-    dragged_step = None
 
     while running:
         dt = pygame.time.Clock().tick(60) / 1000.0
@@ -131,12 +135,10 @@ def main():
         time_left = TIME_LIMIT - elapsed
         if time_left <= 0 and not solved:
             # Time's up, force check
-            # Mark all unverified steps as incorrect
             for slot in slots:
                 if slot.filled_by:
                     slot.filled_by.checked = True
                     slot.filled_by.correct = (slot.filled_by.text == CORRECT_ORDER[slot.index-1])
-            # Calculate score (no time bonus if timed out)
             score = sum(POINTS_PER_CORRECT for slot in slots if slot.filled_by and slot.filled_by.correct)
             solved = True
 
@@ -146,7 +148,6 @@ def main():
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos = event.pos
-                # Start dragging a step if clicked
                 if not solved:
                     for ds in draggable_steps:
                         if ds.rect.collidepoint(pos):
@@ -157,18 +158,15 @@ def main():
                             break
                 # Check button
                 if check_button.clicked(pos) and not solved:
-                    # Evaluate correctness
                     for slot in slots:
                         if slot.filled_by:
                             slot.filled_by.checked = True
                             correct_text = CORRECT_ORDER[slot.index-1]
                             slot.filled_by.correct = (slot.filled_by.text == correct_text)
-                    # Calculate score: correct steps * POINTS_PER_CORRECT + time bonus
                     correct_count = sum(1 for s in slots if s.filled_by and s.filled_by.correct)
                     score = correct_count * POINTS_PER_CORRECT
                     if correct_count == len(CORRECT_ORDER):
-                        # All correct, add time bonus
-                        score += int(time_left)
+                        score += int(time_left)  # time bonus if all correct
                     solved = True
 
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -182,13 +180,7 @@ def main():
                                 slot.filled_by = dragged_step
                                 dragged_step.rect.topleft = slot.rect.topleft
                                 placed = True
-                            else:
-                                # Slot filled, do nothing or swap
-                                pass
-                    if not placed:
-                        # Return to left area if not placed in slot
-                        # (Alternatively, leave it where released)
-                        pass
+                            # If filled, leave as is
                     dragged_step.dragging = False
                     dragged_step = None
 
@@ -198,17 +190,25 @@ def main():
                     dragged_step.rect.x = mx + dragged_step.offset_x
                     dragged_step.rect.y = my + dragged_step.offset_y
 
-        # Draw everything
-        SCREEN.blit(BG_IMAGE, (0, 0))
+        # Draw background
+        SCREEN.fill(RED_BG)
 
-        # Title
-        title_surf = TITLE_FONT.render("Boolean Bakery", True, WHITE)
-        SCREEN.blit(title_surf, (WIDTH//2 - title_surf.get_width()//2, 50))
+        # Draw title (white pill at top center)
+        title_w = 300
+        title_h = 60
+        title_rect = pygame.Rect(WIDTH//2 - title_w//2, 50, title_w, title_h)
+        pygame.draw.rect(SCREEN, WHITE, title_rect, border_radius=30)
+        title_surf = SMALL_FONT.render("Boolean Bakery", True, BLACK)
+        title_txt_rect = title_surf.get_rect(center=title_rect.center)
+        SCREEN.blit(title_surf, title_txt_rect)
 
-        # Instructions (if not solved)
+        # Instructions if not solved:
         if not solved:
-            instr_surf = FONT.render("Sleep de stappen in de juiste volgorde en klik op 'Check!'", True, WHITE)
-            SCREEN.blit(instr_surf, (WIDTH//2 - instr_surf.get_width()//2, 100))
+            instr_surf = INSTR_FONT.render("Let's break down baking a cake", True, WHITE)
+            SCREEN.blit(instr_surf, (WIDTH//2 - instr_surf.get_width()//2, 120))
+            # Another line of instruction could be:
+            add_instr_surf = FONT.render("Sleep de stappen in de juiste volgorde en klik op 'Check!'", True, WHITE)
+            SCREEN.blit(add_instr_surf, (WIDTH//2 - add_instr_surf.get_width()//2, 160))
 
         # Draw steps
         for ds in draggable_steps:
@@ -218,28 +218,31 @@ def main():
         for slot in slots:
             slot.draw(SCREEN)
 
-        # Draw button
+        # Draw button if not solved
         if not solved:
             check_button.draw(SCREEN)
 
-        # Draw timer (top right)
-        SCREEN.blit(TIMER_IMAGE, (WIDTH - 100, 20))
-        time_surf = FONT.render(str(int(time_left)) if time_left > 0 else "0", True, BLACK)
-        SCREEN.blit(time_surf, (WIDTH - 60, 30))
+        # Draw timer (top right) as a simple white circle with remaining time
+        timer_x = WIDTH - 100
+        timer_y = 50
+        pygame.draw.circle(SCREEN, WHITE, (timer_x, timer_y), 40)
+        time_txt = str(int(time_left)) if time_left > 0 else "0"
+        time_surf = FONT.render(time_txt, True, BLACK)
+        time_rect = time_surf.get_rect(center=(timer_x, timer_y))
+        SCREEN.blit(time_surf, time_rect)
 
         # If solved, show score feedback
         if solved:
-            result_surf = FONT.render(f"Score: {score}", True, BLACK)
-            SCREEN.blit(result_surf, (WIDTH//2 - result_surf.get_width()//2, HEIGHT - 100))
+            result_surf = FONT.render(f"Score: {score}", True, WHITE)
+            SCREEN.blit(result_surf, (WIDTH//2 - result_surf.get_width()//2, HEIGHT - 140))
 
-            # Optional: show a message depending on correctness
             correct_count = sum(1 for s in slots if s.filled_by and s.filled_by.correct)
             if correct_count == len(CORRECT_ORDER):
                 msg = "Goed gedaan! Alle stappen zijn correct!"
             else:
                 msg = "Niet alle stappen zijn correct, probeer het opnieuw!"
-            msg_surf = FONT.render(msg, True, BLACK)
-            SCREEN.blit(msg_surf, (WIDTH//2 - msg_surf.get_width()//2, HEIGHT - 140))
+            msg_surf = FONT.render(msg, True, WHITE)
+            SCREEN.blit(msg_surf, (WIDTH//2 - msg_surf.get_width()//2, HEIGHT - 100))
 
         pygame.display.flip()
 
